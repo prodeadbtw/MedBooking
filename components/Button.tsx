@@ -21,8 +21,8 @@ const Button: React.FC<ButtonProps> = ({
     title,
     onPress,
     variant = 'primary',
-    loading = 'false',
-    disabled = 'false',
+    loading = false,
+    disabled = false,
     style,
 }) => {
     const buttonStyles = [
@@ -30,15 +30,15 @@ const Button: React.FC<ButtonProps> = ({
         variant === 'primary' && styles.primaryButton,
         variant === 'secondary' && styles.secondaryButton,
         variant === 'outline' && styles.outlineButton,
-        disabled && styles.disabledText,
+        disabled && styles.disabledButton,
         style,
     ];
 
     const textStyles = [
-        styles.button,
-        variant === 'primary' && styles.primaryButton,
-        variant === 'secondary' && styles.secondaryButton,
-        variant === 'outline' && styles.outlineButton,
+        styles.text,
+        variant === 'primary' && styles.primaryText,
+        variant === 'secondary' && styles.secondaryText,
+        variant === 'outline' && styles.outlineText,
         disabled && styles.disabledText,
     ];
     

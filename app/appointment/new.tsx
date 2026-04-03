@@ -1,4 +1,5 @@
-import Button from '@/components/Button';
+// src/app/appointment/new.tsx
+
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -10,9 +11,13 @@ import {
   Text,
   View,
 } from 'react-native';
+import Button from '../../components/Button';
 import Input from '../../components/Input';
 import { Colors, Spacing, Typography } from '../../constants';
 
+// === ТИП ДАННЫХ ФОРМЫ ===
+// interface описывает структуру данных.
+// Каждое поле формы имеет строковый тип (string).
 interface AppointmentForm {
   patientName: string;
   phone: string;
@@ -21,6 +26,9 @@ interface AppointmentForm {
   complaints: string;
 }
 
+// === ТИП ОШИБОК ===
+// Partial<AppointmentForm> — такой же объект, но ВСЕ поля необязательные.
+// Это потому что ошибка может быть только у некоторых полей.
 type FormErrors = Partial<AppointmentForm>;
 
 export default function NewAppointmentScreen() {
@@ -28,6 +36,10 @@ export default function NewAppointmentScreen() {
     doctorId: string;
     doctorName: string;
   }>();
+
+  // === СОСТОЯНИЕ ФОРМЫ ===
+  // Храним все поля формы в одном объекте state.
+  // useState принимает начальные значения.
   const [form, setForm] = useState<AppointmentForm>({
     patientName: '',
     phone: '',
@@ -36,92 +48,160 @@ export default function NewAppointmentScreen() {
     complaints: '',
   });
 
+  // Состояние ошибок — изначально пустой объект (нет ошибок)
   const [errors, setErrors] = useState<FormErrors>({});
+  
+  // Состояние загрузки (для кнопки)
   const [isLoading, setIsLoading] = useState(false);
+
+  // === ФУНКЦИЯ ОБНОВЛЕНИЯ ПОЛЯ ===
+  // Принимает имя поля и новое значение.
+  // keyof AppointmentForm — TypeScript гарантирует, что field
+  // может быть только 'patientName', 'phone', 'email', 'date' или 'complaints'.
   const updateField = (field: keyof AppointmentForm, value: string) => {
+    // Обновляем форму: копируем старые значения (...prev), 
+    // заменяем одно поле ([field]: value).
     setForm(prev => ({ ...prev, [field]: value }));
 
+    // Убираем ошибку для этого поля при вводе
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
   };
 
+  // === ФУНКЦИЯ ВАЛИДАЦИИ ===
+  // Проверяет все поля и возвращает true, если всё ОК.
   const validate = (): boolean => {
     const newErrors: FormErrors = {};
+
+    // Проверка имени
+    // .trim() — убирает пробелы по краям.
+    // Без trim() строка из одних пробелов "   " прошла бы проверку.
     if (!form.patientName.trim()) {
-      newErrors.patientName = 'Введите ФИО пациента';  
-    } else if (form.patientName.trim().length > 3) {
+      newErrors.patientName = 'Введите ФИО пациента';
+    } else if (form.patientName.trim().length < 3) {
       newErrors.patientName = 'ФИО должно содержать минимум 3 символа';
     }
 
+    // Проверка телефона
+    // Regex (регулярное выражение) для российского телефона:
+    // ^ — начало строки
+    // \+7 — начинается с +7
+    // \d{10} — ровно 10 цифр после +7
+    // $ — конец строки
     const phoneRegex = /^\+7\d{10}$/;
     const cleanPhone = form.phone.replace(/[\s\-\(\)]/g, '');
-
+    // Убираем пробелы, дефисы, скобки перед проверкой
+    
     if (!form.phone.trim()) {
       newErrors.phone = 'Введите номер телефона';
     } else if (!phoneRegex.test(cleanPhone)) {
-      newErrors.phone = 'Формат: +7XXXXXXXXXX';
+      newErrors.phone = 'Формат: +7XXXXXXXXXX (11 цифр)';
     }
 
+    // Проверка email
+    // Regex для email:
+    // [^\s@]+ — один или более символов, кроме пробела и @
+    // @ — символ @
+    // [^\s@]+ — домен
+    // \. — точка
+    // [^\s@]+ — зона (.ru, .com и т.д.)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!form.email.trim()) {
       newErrors.email = 'Введите email';
     } else if (!emailRegex.test(form.email)) {
       newErrors.email = 'Некорректный формат email';
     }
-    
+
+    // Проверка даты
+    // Regex для даты в формате ДД.ММ.ГГГГ:
     const dateRegex = /^\d{2}\.\d{2}\.\d{4}$/;
     if (!form.date.trim()) {
       newErrors.date = 'Введите желаемую дату';
     } else if (!dateRegex.test(form.date)) {
       newErrors.date = 'Формат: ДД.ММ.ГГГГ';
     }
-    
+
+    // Проверка жалоб (необязательное, но если ввёл — минимум 10 символов)
     if (form.complaints.trim() && form.complaints.trim().length < 10) {
       newErrors.complaints = 'Опишите жалобы подробнее (минимум 10 символов)';
     }
 
+    // Устанавливаем ошибки
     setErrors(newErrors);
 
+    // Object.keys() возвращает массив ключей объекта.
+    // Если ключей 0 — ошибок нет — валидация прошла.
     return Object.keys(newErrors).length === 0;
   };
 
+  // === ФУНКЦИЯ ОТПРАВКИ ФОРМЫ ===
   const handleSubmit = async () => {
+    // Сначала валидируем
     if (!validate()) return;
+    // Если validate() вернул false — выходим из функции (return).
+
     setIsLoading(true);
+
+    // Имитируем отправку на сервер (задержка 1.5 секунды)
+    // В ПР №6 мы заменим это на реальный запрос к API.
+    // setTimeout — выполняет код через указанное время.
     setTimeout(() => {
       setIsLoading(false);
+      
+      // Alert.alert — стандартное модальное окно ОС
       Alert.alert(
         'Запись создана! ✅',
         `${form.patientName}, вы записаны ${form.date}${doctorName ? ` к врачу ${doctorName}` : ''}.`,
-        [{text: 'Отлично', onPress: () => router.back(),},],
+        [
+          {
+            text: 'Отлично',
+            onPress: () => router.back(),
+            // При нажатии «Отлично» — возвращаемся назад
+          },
+        ],
       );
     }, 1500);
   };
+
   return (
+    // KeyboardAvoidingView — автоматически поднимает контент,
+    // когда появляется клавиатура, чтобы поля не скрывались за ней.
+    // behavior — отличается на iOS и Android.
     <KeyboardAvoidingView
-    style={styles.container}  
-    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      // Platform.OS — возвращает 'ios' или 'android'
     >
       <ScrollView
         contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
+        // keyboardShouldPersistTaps="handled" — клавиатура не скрывается
+        // при нажатии на другие элементы внутри ScrollView
       >
+        {/* Заголовок */}
         {doctorName && (
           <View style={styles.doctorInfo}>
-            <Text style={styles.doctorLabel}>Вы записываетесь к:</Text>
+            <Text style={styles.doctorLabel}>Врач:</Text>
             <Text style={styles.doctorName}>{doctorName}</Text>
           </View>
         )}
+
+        {/* Поле: ФИО */}
         <Input
-        label="ФИО пациента *"
-        placeholder="Иванов Иван Иванович"
-        value={form.patientName}
-        onChangeText={(text) => updateField('patientName', text)}
-        error={errors.patientName}
-        autoCapitalize="words"
+          label="ФИО пациента *"
+          placeholder="Иванов Иван Иванович"
+          value={form.patientName}
+          onChangeText={(text) => updateField('patientName', text)}
+          // onChangeText — вызывается при каждом изменении текста
+          // text — новый текст в поле
+          error={errors.patientName}
+          autoCapitalize="words"
+          // autoCapitalize="words" — первая буква каждого слова — заглавная
         />
-         <Input
+
+        {/* Поле: Телефон */}
+        <Input
           label="Телефон *"
           placeholder="+79001234567"
           value={form.phone}
@@ -166,11 +246,15 @@ export default function NewAppointmentScreen() {
           style={{ height: 100, textAlignVertical: 'top' }}
           // textAlignVertical: 'top' — текст начинается сверху (для Android)
         />
+
+        {/* Кнопка отправки */}
         <Button
-          title={isLoading ? 'Сохранение...' : 'Записаться'}
+          title="Записаться на приём"
           onPress={handleSubmit}
-          disabled={isLoading}
+          loading={isLoading}
         />
+
+        {/* Кнопка отмены */}
         <Button
           title="Отмена"
           onPress={() => router.back()}
@@ -185,7 +269,7 @@ export default function NewAppointmentScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.surface,
   },
   contentContainer: {
     padding: Spacing.lg,
@@ -211,4 +295,3 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
-
