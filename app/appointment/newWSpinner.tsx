@@ -1,20 +1,20 @@
 // src/app/appointment/new.tsx
 
 import DateTimePicker, {
-  DateTimePickerEvent,
+    DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
@@ -480,7 +480,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     // flex-end — контент прижат к низу экрана
-    shadowColor: '#0000004d',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    // Полупрозрачный чёрный фон — затемнение
   },
   modalContent: {
     backgroundColor: Colors.surface,
