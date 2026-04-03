@@ -1,5 +1,17 @@
-import { useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import Button from '@/components/Button';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useState } from 'react';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import Input from '../../components/Input';
+import { Colors, Spacing, Typography } from '../../constants';
 
 interface AppointmentForm {
   patientName: string;
@@ -73,4 +85,130 @@ export default function NewAppointmentScreen() {
 
     return Object.keys(newErrors).length === 0;
   };
+
+  const handleSubmit = async () => {
+    if (!validate()) return;
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      Alert.alert(
+        'Запись создана! ✅',
+        `${form.patientName}, вы записаны ${form.date}${doctorName ? ` к врачу ${doctorName}` : ''}.`,
+        [{text: 'Отлично', onPress: () => router.back(),},],
+      );
+    }, 1500);
+  };
+  return (
+    <KeyboardAvoidingView
+    style={styles.container}  
+    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        contentContainerStyle={styles.contentContainer}
+        keyboardShouldPersistTaps="handled"
+      >
+        {doctorName && (
+          <View style={styles.doctorInfo}>
+            <Text style={styles.doctorLabel}>Вы записываетесь к:</Text>
+            <Text style={styles.doctorName}>{doctorName}</Text>
+          </View>
+        )}
+        <Input
+        label="ФИО пациента *"
+        placeholder="Иванов Иван Иванович"
+        value={form.patientName}
+        onChangeText={(text) => updateField('patientName', text)}
+        error={errors.patientName}
+        autoCapitalize="words"
+        />
+         <Input
+          label="Телефон *"
+          placeholder="+79001234567"
+          value={form.phone}
+          onChangeText={(text) => updateField('phone', text)}
+          error={errors.phone}
+          keyboardType="phone-pad"
+          // keyboardType="phone-pad" — открывает цифровую клавиатуру
+        />
+
+        {/* Поле: Email */}
+        <Input
+          label="Email *"
+          placeholder="example@mail.ru"
+          value={form.email}
+          onChangeText={(text) => updateField('email', text)}
+          error={errors.email}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          // autoCapitalize="none" — без автозаглавной (email пишется строчными)
+        />
+
+        {/* Поле: Дата */}
+        <Input
+          label="Желаемая дата приёма *"
+          placeholder="25.01.2025"
+          value={form.date}
+          onChangeText={(text) => updateField('date', text)}
+          error={errors.date}
+          keyboardType="numbers-and-punctuation"
+        />
+
+        {/* Поле: Жалобы */}
+        <Input
+          label="Жалобы / причина обращения"
+          placeholder="Опишите свои симптомы..."
+          value={form.complaints}
+          onChangeText={(text) => updateField('complaints', text)}
+          error={errors.complaints}
+          multiline
+          // multiline — многострочное поле (как textarea в HTML)
+          numberOfLines={4}
+          style={{ height: 100, textAlignVertical: 'top' }}
+          // textAlignVertical: 'top' — текст начинается сверху (для Android)
+        />
+        <Button
+          title={isLoading ? 'Сохранение...' : 'Записаться'}
+          onPress={handleSubmit}
+          disabled={isLoading}
+        />
+        <Button
+          title="Отмена"
+          onPress={() => router.back()}
+          variant="outline"
+          style={{ marginTop: Spacing.md }}
+        />
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.primary,
+  },
+  contentContainer: {
+    padding: Spacing.lg,
+    paddingBottom: 40,
+  },
+  doctorInfo: {
+    backgroundColor: Colors.primaryLight + '15',
+    borderRadius: Spacing.borderRadius.sm,
+    padding: Spacing.md,
+    marginBottom: Spacing.xxl,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  doctorLabel: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    marginRight: Spacing.sm,
+  },
+  doctorName: {
+    ...Typography.body,
+    color: Colors.primary,
+    fontWeight: '600',
+    flex: 1,
+  },
+});
+
