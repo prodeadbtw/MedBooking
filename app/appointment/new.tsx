@@ -1,17 +1,5 @@
-import React, { use, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
-import { Colors, Typography, Spacing } from '../../constants';
-import Input from '../../components/Input';
-import Button from '@/components/Button';
+import { useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 
 interface AppointmentForm {
   patientName: string;
@@ -82,6 +70,7 @@ export default function NewAppointmentScreen() {
     }
 
     setErrors(newErrors);
+
     return Object.keys(newErrors).length === 0;
   };
 }
