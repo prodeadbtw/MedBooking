@@ -226,7 +226,7 @@ export default function NewAppointmentScreen() {
         {/* Поле: Дата */}
         <Input
           label="Желаемая дата приёма *"
-          placeholder="25.01.2025"
+          placeholder="25.01.2026"
           value={form.date}
           onChangeText={(text) => updateField('date', text)}
           error={errors.date}

@@ -8,18 +8,17 @@ import React from 'react';
 
 // Из React Native берём «строительные блоки» для интерфейса:
 import {
-  View,           // Контейнер — как <div> в HTML. Группирует другие элементы.
-  Text,           // Текст — для любого текста на экране.
-  StyleSheet,     // Для создания стилей (аналог CSS).
-  ScrollView,     // Прокручиваемая область — если контент не помещается.
-  Image,          // Для отображения картинок.
-  StatusBar,      // Управление строкой статуса (время, батарейка вверху экрана).
+  ScrollView, // Для отображения картинок.
+  StatusBar, // Текст — для любого текста на экране.
+  StyleSheet, // Контейнер — как <div> в HTML. Группирует другие элементы.
+  Text,
+  View
 } from 'react-native';
 
 // Импортируем наши константы (цвета, типографику, отступы)
-import { Colors, Typography, Spacing } from '../../constants';
-import { Pressable } from 'react-native';
 import { router } from 'expo-router';
+import { Pressable } from 'react-native';
+import { Colors, Spacing, Typography } from '../../constants';
 
 // === КОМПОНЕНТ ===
 // Компонент — это функция, которая возвращает кусочек интерфейса.
@@ -48,11 +47,11 @@ export default function HomeScreen() {
         </View>
 
         {/* Название приложения */}
-        <Text style={styles.appName}>MedBooking</Text>
+        <Text style={styles.appName}>SmartBooking</Text>
 
         {/* Слоган */}
         <Text style={styles.tagline}>
-          Запись к врачу — быстро и удобно
+          Запись к специалисту — быстро и удобно
         </Text>
       </View>
 
@@ -115,7 +114,7 @@ export default function HomeScreen() {
           // push — добавляет экран в стопку (можно вернуться «назад»).
         >
           <Text style={styles.actionIcon}>👨‍⚕️</Text>
-          <Text style={styles.actionText}>Найти врача</Text>
+          <Text style={styles.actionText}>Найти специалиста</Text>
           <Text style={styles.actionArrow}>→</Text>
         </Pressable>
         <Pressable
@@ -140,7 +139,7 @@ export default function HomeScreen() {
       {/* === СЕКЦИЯ: Футер === */}
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          Версия 1.0.0 • MedBooking © 2026
+          Версия 1.0.1 • SmartBooking © 2026
         </Text>
       </View>
 
