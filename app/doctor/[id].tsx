@@ -5,110 +5,72 @@
 // параметр id будет равен "5".
 // Это как шаблон: /doctor/ЛЮБОЕ_ЗНАЧЕНИЕ
 
+import { router, useLocalSearchParams } from 'expo-router';
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 // useLocalSearchParams — хук (hook), который достаёт параметры из URL.
 // router — объект для программной навигации (переход на другой экран из кода).
 
-import { Colors, Typography, Spacing } from '../../constants';
-
-// Моковые данные врачей (позже заменим на данные из API)
-// «Моковые» = фейковые, тестовые данные для разработки
-const MOCK_DOCTORS: Record<string, any> = {
-  '1': {
-    id: '1',
-    name: 'Иванова Мария Петровна',
-    specialty: 'Терапевт',
-    experience: 15,
-    rating: 4.8,
-    photo: '👩‍⚕️',
-    description: 'Врач высшей категории. Специализируется на диагностике и лечении заболеваний внутренних органов.',
-    schedule: 'Пн-Пт: 9:00 - 17:00',
-    price: 2500,
-  },
-  '2': {
-    id: '2',
-    name: 'Петров Алексей Сергеевич',
-    specialty: 'Кардиолог',
-    experience: 20,
-    rating: 4.9,
-    photo: '👨‍⚕️',
-    description: 'Доктор медицинских наук. Эксперт в области кардиологии и функциональной диагностики.',
-    schedule: 'Пн, Ср, Пт: 10:00 - 18:00',
-    price: 3500,
-  },
-  '3': {
-    id: '3',
-    name: 'Сидорова Елена Владимировна',
-    specialty: 'Невролог',
-    experience: 12,
-    rating: 4.7,
-    photo: '👩‍⚕️',
-    description: 'Специалист по заболеваниям нервной системы. Владеет современными методами диагностики.',
-    schedule: 'Вт, Чт: 9:00 - 16:00',
-    price: 3000,
-  },
-};
-
+import { Colors, Spacing, Typography } from '../../constants';
+import { Doctor, DOCTORS } from '../../data/doctors';
 export default function DoctorDetailScreen() {
-  // Достаём параметр id из URL
-  // Если перешли по /doctor/2, то id будет "2"
   const { id } = useLocalSearchParams<{ id: string }>();
-
-  // Ищем врача по id в наших моковых данных
-  const doctor = MOCK_DOCTORS[id as string];
-
-  // Если врач не найден — показываем сообщение об ошибке
+  const doctor: Doctor | undefined = DOCTORS.find((doc) => doc.id === id);
   if (!doctor) {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorEmoji}>😕</Text>
         <Text style={styles.errorText}>Врач не найден</Text>
-        {/* Pressable — это кнопка. При нажатии выполняется onPress */}
         <Pressable
           style={styles.backButton}
           onPress={() => router.back()}
-          // router.back() — вернуться на предыдущий экран
         >
           <Text style={styles.backButtonText}>Назад</Text>
         </Pressable>
       </View>
     );
   }
-
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
     >
-      {/* Шапка с фото и именем */}
+      {/* === ШАПКА === */}
       <View style={styles.header}>
-        <Text style={styles.photo}>{doctor.photo}</Text>
+        <View style={styles.avatarLarge}>
+          <Text style={styles.avatarText}>{doctor.photo}</Text>
+        </View>
         <Text style={styles.name}>{doctor.name}</Text>
         <Text style={styles.specialty}>{doctor.specialty}</Text>
 
-        {/* Рейтинг и опыт */}
+        {/* Статистика */}
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>⭐ {doctor.rating}</Text>
-            <Text style={styles.statLabel}>Рейтинг</Text>
+            <Text style={styles.statLabel}>
+              {doctor.reviewsCount} отзывов
+            </Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{doctor.experience} лет</Text>
-            <Text style={styles.statLabel}>Опыт</Text>
+            <Text style={styles.statLabel}>Опыт работы</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{doctor.price} ₽</Text>
+            <Text style={styles.statLabel}>Приём</Text>
           </View>
         </View>
       </View>
 
-      {/* Секция: О враче */}
+      {/* === О СПЕЦИАЛИСТЕ === */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>О специалисте</Text>
         <Text style={styles.description}>{doctor.description}</Text>
       </View>
 
-      {/* Секция: Расписание */}
+      {/* === РАСПИСАНИЕ === */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Расписание</Text>
         <View style={styles.infoRow}>
@@ -117,32 +79,38 @@ export default function DoctorDetailScreen() {
         </View>
       </View>
 
-      {/* Секция: Стоимость */}
+      {/* === АДРЕС === */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Стоимость приёма</Text>
-        <Text style={styles.price}>{doctor.price} ₽</Text>
+        <Text style={styles.sectionTitle}>Адрес</Text>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoIcon}>📍</Text>
+          <Text style={styles.infoText}>{doctor.address}</Text>
+        </View>
       </View>
 
-      {/* Кнопка записи */}
+      {/* === КНОПКА ЗАПИСИ === */}
       <Pressable
-        style={styles.appointmentButton}
+        style={({ pressed }) => [
+          styles.appointmentButton,
+          pressed && { opacity: 0.85 },
+        ]}
         onPress={() => {
-          // Переходим на экран создания записи,
-          // передавая id врача как параметр
           router.push({
             pathname: '/appointment/new',
-            params: { doctorId: doctor.id, doctorName: doctor.name },
+            params: {
+              doctorId: doctor.id,
+              doctorName: doctor.name,
+            },
           });
         }}
       >
         <Text style={styles.appointmentButtonText}>
-          Записаться на приём
+          Записаться на приём • {doctor.price} ₽
         </Text>
       </Pressable>
     </ScrollView>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -161,9 +129,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  photo: {
-    fontSize: 80,
+  avatarLarge: {
+    width: 100,
+    height: 100,
+    borderRadius: Spacing.borderRadius.full,
+    backgroundColor: Colors.primaryLight + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: Spacing.md,
+  },
+  avatarText: {
+    fontSize: 50,
   },
   name: {
     ...Typography.h2,
@@ -173,6 +149,7 @@ const styles = StyleSheet.create({
   specialty: {
     ...Typography.body,
     color: Colors.primary,
+    fontWeight: '500',
     marginBottom: Spacing.lg,
   },
 
@@ -183,24 +160,28 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     borderRadius: Spacing.borderRadius.md,
     paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: Spacing.md,
+    width: '100%',
+    // width: '100%' — растягиваем на всю ширину родителя
   },
   statItem: {
-    alignItems: 'center',
     flex: 1,
+    alignItems: 'center',
   },
   statValue: {
-    ...Typography.h3,
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.textPrimary,
     marginBottom: 2,
   },
   statLabel: {
-    ...Typography.caption,
+    fontSize: 12,
+    color: Colors.textSecondary,
   },
   statDivider: {
     width: 1,
     height: 30,
     backgroundColor: Colors.border,
-    marginHorizontal: Spacing.lg,
   },
 
   // Секции
@@ -216,10 +197,8 @@ const styles = StyleSheet.create({
   description: {
     ...Typography.body,
     color: Colors.textSecondary,
-    lineHeight: 22,
+    lineHeight: 24,
   },
-
-  // Информационная строка
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -230,13 +209,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     ...Typography.body,
-  },
-
-  // Цена
-  price: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: Colors.primary,
+    flex: 1,
   },
 
   // Кнопка записи
@@ -247,7 +220,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
     borderRadius: Spacing.borderRadius.sm,
     alignItems: 'center',
-    // Тени
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -257,6 +229,7 @@ const styles = StyleSheet.create({
   appointmentButtonText: {
     ...Typography.button,
     color: Colors.textOnPrimary,
+    fontSize: 17,
   },
 
   // Ошибка
@@ -265,6 +238,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Colors.background,
+    padding: Spacing.lg,
   },
   errorEmoji: {
     fontSize: 64,

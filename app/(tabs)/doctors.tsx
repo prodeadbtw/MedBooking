@@ -109,6 +109,9 @@ export default function DoctorsScreen() {
   const renderHeader = useCallback(
     () => (
       <View>
+        <View>
+          <Text style={styles.headerTitle}>Выберите врача</Text>
+        </View>
         {/* Поисковая строка */}
         <View style={styles.searchContainer}>
           <Text style={styles.searchIcon}>🔍</Text>
@@ -229,12 +232,18 @@ function getDoctorWord(count: number): string {
 
 // === СТИЛИ ===
 const styles = StyleSheet.create({
+  headerTitle: {
+    ...Typography.h1,
+    marginBottom: 15,
+    paddingHorizontal: Spacing.lg,
+  },
+
   container: {
     flex: 1,
     backgroundColor: Colors.background,
   },
   listContent: {
-    paddingTop: Spacing.md,
+    paddingTop: 50,
     paddingBottom: 20,
     // flexGrow: 1 нужен, чтобы ListEmptyComponent
     // мог занять весь экран (для центрирования "Не найдено")
