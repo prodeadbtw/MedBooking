@@ -145,6 +145,14 @@
       "id": "wFsdBq2Tma8"
     }
   ],
-  "users": [],
+  "users": [
+    {
+      "name": "Орлов Тигран Петросович",
+      "email": "prodead@gmail.com",
+      "phone": "+79934140806",
+      "password": "xugri4-cegfob-dErwup",
+      "id": "y6n6QThZOOs"
+    }
+  ],
   "$schema": "./node_modules/json-server/schema.json"
 }

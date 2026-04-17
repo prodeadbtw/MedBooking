@@ -1,7 +1,7 @@
 // src/app/appointment/new.tsx
 
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -15,6 +15,7 @@ import Button from '../../components/Button';
 import Input from '../../components/Input';
 import { Colors, Spacing, Typography } from '../../constants';
 import { useApp } from '../../contexts/AppContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 // === ТИП ДАННЫХ ФОРМЫ ===
 // interface описывает структуру данных.
@@ -34,6 +35,22 @@ type FormErrors = Partial<AppointmentForm>;
 
 export default function NewAppointmentScreen() {
   const { addAppointment } = useApp();
+  const { state: authState } = useAuth();
+
+  // Автозаполнение формы данными пользователя
+  // useEffect сработает, если пользователь авторизован
+  useEffect(() => {
+    if (authState.user) {
+      setForm((prev) => ({
+        ...prev,
+        patientName: prev.patientName || authState.user!.name,
+        phone: prev.phone || authState.user!.phone,
+        email: prev.email || authState.user!.email,
+        // || — если поле пустое, заполняем данными пользователя.
+        // Если уже заполнено — не перезаписываем.
+      }));
+    }
+  }, [authState.user]);
   const { doctorId, doctorName } = useLocalSearchParams<{
     doctorId: string;
     doctorName: string;
