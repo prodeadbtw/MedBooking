@@ -103,7 +103,7 @@ export default function RegisterScreen() {
       if (success) {
         Alert.alert(
           'Регистрация успешна! 🎉',
-          'Добро пожаловать в MedBooking!',
+          'Добро пожаловать в SmartBooking!',
           [{ text: 'Начать', onPress: () => router.dismiss() }]
           // router.dismiss() — закрывает все модальные экраны,
           // возвращая на главный (вкладки)

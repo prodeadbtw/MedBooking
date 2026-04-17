@@ -143,6 +143,18 @@
       "createdAt": "2026-04-17T03:09:09.848Z",
       "status": "confirmed",
       "id": "wFsdBq2Tma8"
+    },
+    {
+      "doctorId": "4",
+      "doctorName": "Козлов Дмитрий Александрович",
+      "patientName": "Орлов Тигран Петросович",
+      "phone": "+79991112233",
+      "email": "prodead@gmail.com",
+      "date": "2026-04-24T21:00:00.000Z",
+      "complaints": "Головная боль, боль, боль",
+      "createdAt": "2026-04-17T10:10:38.335Z",
+      "status": "cancelled",
+      "id": "nz0CAZ7pYs8"
     }
   ],
   "users": [
@@ -152,6 +164,20 @@
       "phone": "+79934140806",
       "password": "xugri4-cegfob-dErwup",
       "id": "y6n6QThZOOs"
+    },
+    {
+      "name": "Орлов Тигран Петросович",
+      "email": "prodead@gmail.com",
+      "phone": "+79934140806",
+      "password": "123456",
+      "id": "N3GsPoknYEE"
+    },
+    {
+      "name": "Орлов Тигран Петросович",
+      "email": "prodead@gmail.com",
+      "phone": "+79991112233",
+      "password": "123456",
+      "id": "VbVFx4kbhrI"
     }
   ],
   "$schema": "./node_modules/json-server/schema.json"

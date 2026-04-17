@@ -19,6 +19,7 @@ import {
 import { router } from 'expo-router';
 import { Pressable } from 'react-native';
 import { Colors, Spacing, Typography } from '../../constants';
+import { useAuth } from '../../contexts/AuthContext';
 
 // === КОМПОНЕНТ ===
 // Компонент — это функция, которая возвращает кусочек интерфейса.
@@ -27,6 +28,7 @@ import { Colors, Spacing, Typography } from '../../constants';
 // потому что файл называется index.tsx и лежит в (tabs)/.
 
 export default function HomeScreen() {
+  const { state: authState } = useAuth()
   return (
     // ScrollView — позволяет прокручивать содержимое, если оно не помещается
     // contentContainerStyle — стиль для СОДЕРЖИМОГО скролла (не самого контейнера)
@@ -51,8 +53,11 @@ export default function HomeScreen() {
 
         {/* Слоган */}
         <Text style={styles.tagline}>
-          Запись к специалисту — быстро и удобно
+          {authState.isAuthenticated
+              ? `Здравствуйте, ${authState.user?.name?.split(' ')[0]}! 👋`
+              : 'Запись к специалисту — быстро и удобно'}
         </Text>
+
       </View>
 
       {/* === СЕКЦИЯ: Описание функций === */}
@@ -125,7 +130,28 @@ export default function HomeScreen() {
           <Text style={styles.actionText}>Записаться на приём</Text>
           <Text style={styles.actionArrow}>→</Text>
         </Pressable>
-
+        
+      {authState.isAuthenticated ? (
+        // === ПОЛЬЗОВАТЕЛЬ АВТОРИЗОВАН — кнопка «Профиль» ===
+        <Pressable
+          style={styles.actionButton}
+          onPress={() => router.push('/(tabs)/profile')}
+          // Переходим на вкладку «Профиль»
+        >
+          <Text style={styles.actionIcon}>👤</Text>
+          <View style={styles.actionTextContainer}>
+            <Text style={styles.actionText}>Мой профиль</Text>
+            <Text style={styles.actionSubtext}>
+              {authState.user?.name}
+            </Text>
+            {/* authState.user?.name — оператор ?. (optional chaining).
+                Если user === null, то вернёт undefined вместо ошибки.
+                Это защита на случай, если user ещё не загрузился. */}
+          </View>
+          <Text style={styles.actionArrow}>→</Text>
+        </Pressable>
+      ) : (
+        // === ПОЛЬЗОВАТЕЛЬ НЕ АВТОРИЗОВАН — кнопка «Войти» ===
         <Pressable
           style={styles.actionButton}
           onPress={() => router.push('/auth/login')}
@@ -134,6 +160,7 @@ export default function HomeScreen() {
           <Text style={styles.actionText}>Войти в аккаунт</Text>
           <Text style={styles.actionArrow}>→</Text>
         </Pressable>
+      )}
         </View>
 
       {/* === СЕКЦИЯ: Футер === */}
@@ -241,6 +268,16 @@ const styles = StyleSheet.create({
 
     // Тень (для Android) — elevation заменяет shadow* на Android
     elevation: 2,
+  },
+  actionTextContainer: {
+    flex: 1,
+  
+  },
+
+  actionSubtext: {
+    ...Typography.caption,
+    fontSize: 12,
+    marginTop: 2,
   },
 
   // Иконка в карточке

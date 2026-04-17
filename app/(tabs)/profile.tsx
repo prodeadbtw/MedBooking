@@ -184,7 +184,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   contentContainer: { paddingBottom: 40 },
-
   // Гостевой экран
   guestContainer: {
     flex: 1,
@@ -202,7 +201,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xxxl,
     lineHeight: 22,
   },
-
+  
   // Шапка профиля
   profileHeader: {
     alignItems: 'center',
