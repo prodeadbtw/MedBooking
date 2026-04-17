@@ -1,33 +1,64 @@
+// src/app/(tabs)/_layout.tsx
+
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { Text } from 'react-native';
+import { Colors } from '../../constants';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+function TabBarIcon({ emoji }: { emoji: string }) {
+  return <Text style={{ fontSize: 22 }}>{emoji}</Text>;
+}
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.textSecondary,
+        tabBarStyle: {
+          backgroundColor: Colors.surface,
+          borderTopColor: Colors.border,
+        },
+        headerStyle: {
+          backgroundColor: Colors.primary,
+        },
+        headerTintColor: Colors.textOnPrimary,
+        headerTitleStyle: {
+          fontWeight: '600',
+        },
+      }}
+    >
+      <Tabs.Screen
+      name="(tabs)"
+      options={{ headerShown: false }}
+      />
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Главная',
+          tabBarIcon: () => <TabBarIcon emoji="🏠" />,
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="doctors"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Врачи',
+          tabBarIcon: () => <TabBarIcon emoji="👨‍⚕️" />,
+        }}
+      />
+      {/* НОВАЯ ВКЛАДКА */}
+      <Tabs.Screen
+        name="appointments"
+        options={{
+          title: 'Мои записи',
+          tabBarIcon: () => <TabBarIcon emoji="📋" />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Профиль',
+          tabBarIcon: () => <TabBarIcon emoji="👤" />,
         }}
       />
     </Tabs>

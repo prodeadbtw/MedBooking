@@ -14,6 +14,7 @@ import {
 import Button from '../../components/Button';
 import Input from '../../components/Input';
 import { Colors, Spacing, Typography } from '../../constants';
+import { useApp } from '../../contexts/AppContext';
 
 // === ТИП ДАННЫХ ФОРМЫ ===
 // interface описывает структуру данных.
@@ -32,6 +33,7 @@ interface AppointmentForm {
 type FormErrors = Partial<AppointmentForm>;
 
 export default function NewAppointmentScreen() {
+  const { addAppointment } = useApp();
   const { doctorId, doctorName } = useLocalSearchParams<{
     doctorId: string;
     doctorName: string;
@@ -136,33 +138,53 @@ export default function NewAppointmentScreen() {
   };
 
   // === ФУНКЦИЯ ОТПРАВКИ ФОРМЫ ===
-  const handleSubmit = async () => {
-    // Сначала валидируем
-    if (!validate()) return;
-    // Если validate() вернул false — выходим из функции (return).
+   const handleSubmit = async () => {
+  if (!validate()) return;
 
-    setIsLoading(true);
+  setIsLoading(true);
 
-    // Имитируем отправку на сервер (задержка 1.5 секунды)
-    // В ПР №6 мы заменим это на реальный запрос к API.
-    // setTimeout — выполняет код через указанное время.
-    setTimeout(() => {
-      setIsLoading(false);
-      
-      // Alert.alert — стандартное модальное окно ОС
-      Alert.alert(
-        'Запись создана! ✅',
-        `${form.patientName}, вы записаны ${form.date}${doctorName ? ` к врачу ${doctorName}` : ''}.`,
-        [
-          {
-            text: 'Отлично',
-            onPress: () => router.back(),
-            // При нажатии «Отлично» — возвращаемся назад
-          },
-        ],
-      );
-    }, 1500);
-  };
+  try {
+    // form.date — это строка вида "25.01.2025"
+    // Нужно преобразовать её в ISO-формат для хранения.
+    // Разбиваем строку по точке: ["25", "01", "2025"]
+    const [day, month, year] = form.date.split('.');
+    // Создаём объект Date: new Date(год, месяц-1, день)
+    // Месяц -1 потому что в JavaScript месяцы нумеруются с 0
+    // (0 = январь, 1 = февраль, ..., 11 = декабрь)
+    const dateObject = new Date(
+      parseInt(year),
+      parseInt(month) - 1,
+      parseInt(day)
+    );
+
+    const appointment = await addAppointment({
+      doctorId: doctorId || 'unknown',
+      doctorName: doctorName || 'Не указан',
+      patientName: form.patientName.trim(),
+      phone: form.phone.trim(),
+      email: form.email.trim(),
+      date: dateObject.toISOString(),
+      // toISOString() → "2025-01-25T00:00:00.000Z"
+      complaints: form.complaints.trim(),
+    });
+
+    Alert.alert(
+      'Запись создана! ✅',
+      `${form.patientName}, вы записаны на ${form.date}${
+        doctorName ? ` к врачу ${doctorName}` : ''
+      }.\n\nНомер записи: ${appointment.id}`,
+      [{ text: 'Отлично', onPress: () => router.back() }]
+    );
+  } catch (error) {
+    Alert.alert(
+      'Ошибка',
+      'Не удалось создать запись. Попробуйте ещё раз.',
+      [{ text: 'OK' }]
+    );
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     // KeyboardAvoidingView — автоматически поднимает контент,
