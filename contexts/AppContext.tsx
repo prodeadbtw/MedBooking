@@ -1,152 +1,193 @@
 // src/contexts/AppContext.tsx
 
-// APP CONTEXT — глобальное состояние приложения.
-// Хранит: записи, избранных врачей, настройки.
-// Объединяет логику из useAppointments и useFavorites
-// в одном месте, доступном из любого экрана.
-
 import React, {
-    createContext,
-    ReactNode,
-    useCallback,
-    useContext,
-    useEffect,
-    useState,
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
 } from 'react';
-import { Appointment } from '../data/appointments';
-import { appointmentsApi } from '../services/api';
-import { getItem, setItem, STORAGE_KEYS } from '../services/storage';
+import { supabase } from '../lib/supabase';
 
-// === ТИПЫ ===
+// Запись на приём (как приходит из БД)
+export interface Appointment {
+  id: string;
+  specialist_id: string;
+  appointment_date: string;
+  appointment_time: string;
+  status: string;
+  comment: string | null;
+  created_at: string;
+  // данные специалиста подтягиваем join-ом
+  specialists?: {
+    full_name: string;
+    profession: string;
+    specialization: string | null;
+  } | null;
+}
+
+interface NewAppointmentData {
+  specialist_id: string;
+  appointment_date: string;
+  appointment_time: string;
+  comment?: string;
+}
+
 interface AppContextType {
-  // Записи
   appointments: Appointment[];
   appointmentsLoading: boolean;
-  addAppointment: (
-    data: Omit<Appointment, 'id' | 'createdAt' | 'status'>
-  ) => Promise<Appointment>;
+  addAppointment: (data: NewAppointmentData) => Promise<boolean>;
   cancelAppointment: (id: string) => Promise<void>;
   refetchAppointments: () => Promise<void>;
 
-  // Избранное
   favorites: string[];
   isFavorite: (id: string) => boolean;
-  toggleFavorite: (id: string) => void;
+  toggleFavorite: (id: string) => Promise<void>;
 }
 
-const AppContext = createContext<AppContextType | undefined>(undefined);
+const defaultValue: AppContextType = {
+  appointments: [],
+  appointmentsLoading: false,
+  addAppointment: async () => false,
+  cancelAppointment: async () => {},
+  refetchAppointments: async () => {},
+  favorites: [],
+  isFavorite: () => false,
+  toggleFavorite: async () => {},
+};
+
+const AppContext = createContext<AppContextType>(defaultValue);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  // === ЗАПИСИ ===
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [appointmentsLoading, setAppointmentsLoading] = useState(true);
-
-  // === ИЗБРАННОЕ ===
   const [favorites, setFavorites] = useState<string[]>([]);
 
-  // === ЗАГРУЗКА ДАННЫХ ПРИ СТАРТЕ ===
-  useEffect(() => {
-    (async () => {
-      try {
-        // Загружаем записи
-        try {
-          const serverAppointments = await appointmentsApi.getAll();
-          setAppointments(serverAppointments);
-          await setItem(STORAGE_KEYS.APPOINTMENTS, serverAppointments);
-        } catch {
-          const localAppointments = await getItem<Appointment[]>(
-            STORAGE_KEYS.APPOINTMENTS
-          );
-          if (localAppointments) setAppointments(localAppointments);
-        }
+  // === ЗАГРУЗКА ЗАПИСЕЙ ===
+  const refetchAppointments = useCallback(async () => {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      setAppointments([]);
+      return;
+    }
 
-        // Загружаем избранное
-        const savedFavorites = await getItem<string[]>(
-          STORAGE_KEYS.FAVORITE_DOCTORS
-        );
-        if (savedFavorites) setFavorites(savedFavorites);
-      } catch (error) {
-        console.error('Ошибка загрузки данных:', error);
-      } finally {
-        setAppointmentsLoading(false);
-      }
-    })();
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*, specialists(full_name, profession, specialization)')
+      .order('appointment_date', { ascending: true });
+
+    if (error) {
+      console.log('Ошибка загрузки записей:', error.message);
+      return;
+    }
+    setAppointments(data ?? []);
   }, []);
 
-  // === МЕТОДЫ ЗАПИСЕЙ ===
+  // === ЗАГРУЗКА ИЗБРАННОГО ===
+  const refetchFavorites = useCallback(async () => {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      setFavorites([]);
+      return;
+    }
+
+    const { data } = await supabase
+      .from('favorites')
+      .select('specialist_id');
+
+    setFavorites((data ?? []).map((f) => f.specialist_id));
+  }, []);
+
+  // Загружаем при старте и при смене пользователя
+  useEffect(() => {
+    const init = async () => {
+      setAppointmentsLoading(true);
+      await Promise.all([refetchAppointments(), refetchFavorites()]);
+      setAppointmentsLoading(false);
+    };
+    init();
+
+    // перезагружаем данные при входе/выходе
+    const { data: listener } = supabase.auth.onAuthStateChange(() => {
+      init();
+    });
+    return () => listener.subscription.unsubscribe();
+  }, [refetchAppointments, refetchFavorites]);
+
+  // === СОЗДАНИЕ ЗАПИСИ ===
   const addAppointment = useCallback(
-    async (
-      data: Omit<Appointment, 'id' | 'createdAt' | 'status'>
-    ): Promise<Appointment> => {
-      const appointmentData: Omit<Appointment, 'id'> = {
-        ...data,
-        createdAt: new Date().toISOString(),
-        status: 'pending',
-      };
-
-      let newAppointment: Appointment;
-
-      try {
-        newAppointment = await appointmentsApi.create(appointmentData);
-      } catch {
-        newAppointment = {
-          ...appointmentData,
-          id: generateId(),
-        };
+    async (data: NewAppointmentData): Promise<boolean> => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) {
+        console.log('Нельзя записаться без входа');
+        return false;
       }
 
-      setAppointments((prev) => {
-        const updated = [newAppointment, ...prev];
-        setItem(STORAGE_KEYS.APPOINTMENTS, updated);
-        return updated;
+      const { error } = await supabase.from('appointments').insert({
+        user_id: userData.user.id,
+        specialist_id: data.specialist_id,
+        appointment_date: data.appointment_date,
+        appointment_time: data.appointment_time,
+        comment: data.comment ?? null,
       });
 
-      return newAppointment;
+      if (error) {
+        console.log('Ошибка создания записи:', error.message);
+        return false;
+      }
+
+      await refetchAppointments();
+      return true;
     },
-    []
+    [refetchAppointments]
   );
 
-  const cancelAppointment = useCallback(async (id: string) => {
-    try {
-      await appointmentsApi.update(id, { status: 'cancelled' });
-    } catch {
-      console.warn('Сервер недоступен, отменяем локально');
-    }
+  // === ОТМЕНА ЗАПИСИ ===
+  const cancelAppointment = useCallback(
+    async (id: string) => {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ status: 'cancelled' })
+        .eq('id', id);
 
-    setAppointments((prev) => {
-      const updated = prev.map((apt) =>
-        apt.id === id ? { ...apt, status: 'cancelled' as const } : apt
-      );
-      setItem(STORAGE_KEYS.APPOINTMENTS, updated);
-      return updated;
-    });
-  }, []);
+      if (error) {
+        console.log('Ошибка отмены:', error.message);
+        return;
+      }
+      await refetchAppointments();
+    },
+    [refetchAppointments]
+  );
 
-  const refetchAppointments = useCallback(async () => {
-    try {
-      const data = await appointmentsApi.getAll();
-      setAppointments(data);
-      await setItem(STORAGE_KEYS.APPOINTMENTS, data);
-    } catch {
-      console.warn('Не удалось обновить записи с сервера');
-    }
-  }, []);
-
-  // === МЕТОДЫ ИЗБРАННОГО ===
+  // === ИЗБРАННОЕ ===
   const isFavorite = useCallback(
     (id: string) => favorites.includes(id),
     [favorites]
   );
 
-  const toggleFavorite = useCallback((id: string) => {
-    setFavorites((prev) => {
-      const updated = prev.includes(id)
-        ? prev.filter((fId) => fId !== id)
-        : [...prev, id];
-      setItem(STORAGE_KEYS.FAVORITE_DOCTORS, updated);
-      return updated;
-    });
-  }, []);
+  const toggleFavorite = useCallback(
+    async (id: string) => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      if (favorites.includes(id)) {
+        await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', userData.user.id)
+          .eq('specialist_id', id);
+        setFavorites((prev) => prev.filter((f) => f !== id));
+      } else {
+        await supabase.from('favorites').insert({
+          user_id: userData.user.id,
+          specialist_id: id,
+        });
+        setFavorites((prev) => [...prev, id]);
+      }
+    },
+    [favorites]
+  );
 
   const value: AppContextType = {
     appointments,
@@ -163,13 +204,5 @@ export function AppProvider({ children }: { children: ReactNode }) {
 }
 
 export function useApp(): AppContextType {
-  const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useApp must be used within an AppProvider');
-  }
-  return context;
-}
-
-function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
-}
+  return useContext(AppContext);
+} 

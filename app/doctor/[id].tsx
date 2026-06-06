@@ -1,35 +1,66 @@
 // src/app/doctor/[id].tsx
 
-// [id] в имени файла — это ДИНАМИЧЕСКИЙ ПАРАМЕТР.
-// Когда пользователь переходит на маршрут /doctor/5,
-// параметр id будет равен "5".
-// Это как шаблон: /doctor/ЛЮБОЕ_ЗНАЧЕНИЕ
-
 import { router, useLocalSearchParams } from 'expo-router';
-import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-// useLocalSearchParams — хук (hook), который достаёт параметры из URL.
-// router — объект для программной навигации (переход на другой экран из кода).
-
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Colors, Spacing, Typography } from '../../constants';
-import { Doctor, DOCTORS } from '../../data/doctors';
-export default function DoctorDetailScreen() {
+import {
+  getSpecialistById,
+  Specialist,
+} from '../../services/specialists';
+
+export default function SpecialistDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const doctor: Doctor | undefined = DOCTORS.find((doc) => doc.id === id);
-  if (!doctor) {
+
+  const [specialist, setSpecialist] = useState<Specialist | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      const data = await getSpecialistById(id);
+      setSpecialist(data);
+      setLoading(false);
+    };
+    load();
+  }, [id]);
+
+  // === ЗАГРУЗКА ===
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  // === НЕ НАЙДЕН ===
+  if (!specialist) {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorEmoji}>😕</Text>
-        <Text style={styles.errorText}>Врач не найден</Text>
-        <Pressable
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
+        <Text style={styles.errorText}>Специалист не найден</Text>
+        <Pressable style={styles.backButton} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>Назад</Text>
         </Pressable>
       </View>
     );
   }
+
+  // Если у специалиста есть компания — показываем её, иначе "Частный специалист"
+  const companyName = specialist.companies?.name ?? 'Частный специалист';
+  const companyAddress = specialist.companies?.address ?? 'Адрес уточняется';
+
+  // Первая буква имени вместо фото-эмодзи
+  const initial = specialist.full_name.charAt(0).toUpperCase();
+
   return (
     <ScrollView
       style={styles.container}
@@ -38,27 +69,32 @@ export default function DoctorDetailScreen() {
       {/* === ШАПКА === */}
       <View style={styles.header}>
         <View style={styles.avatarLarge}>
-          <Text style={styles.avatarText}>{doctor.photo}</Text>
+          <Text style={styles.avatarText}>{initial}</Text>
         </View>
-        <Text style={styles.name}>{doctor.name}</Text>
-        <Text style={styles.specialty}>{doctor.specialty}</Text>
+        <Text style={styles.name}>{specialist.full_name}</Text>
+        <Text style={styles.specialty}>
+          {specialist.profession}
+          {specialist.specialization ? ` • ${specialist.specialization}` : ''}
+        </Text>
 
         {/* Статистика */}
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>⭐ {doctor.rating}</Text>
-            <Text style={styles.statLabel}>
-              {doctor.reviewsCount} отзывов
-            </Text>
+            <Text style={styles.statValue}>⭐ {specialist.rating}</Text>
+            <Text style={styles.statLabel}>Рейтинг</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{doctor.experience} лет</Text>
+            <Text style={styles.statValue}>
+              {specialist.experience_years} лет
+            </Text>
             <Text style={styles.statLabel}>Опыт работы</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{doctor.price} ₽</Text>
+            <Text style={styles.statValue}>
+              {specialist.price ? `${specialist.price} ₽` : '—'}
+            </Text>
             <Text style={styles.statLabel}>Приём</Text>
           </View>
         </View>
@@ -67,24 +103,21 @@ export default function DoctorDetailScreen() {
       {/* === О СПЕЦИАЛИСТЕ === */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>О специалисте</Text>
-        <Text style={styles.description}>{doctor.description}</Text>
+        <Text style={styles.description}>
+          {specialist.description ?? 'Описание не указано'}
+        </Text>
       </View>
 
-      {/* === РАСПИСАНИЕ === */}
+      {/* === КОМПАНИЯ === */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Расписание</Text>
+        <Text style={styles.sectionTitle}>Место работы</Text>
         <View style={styles.infoRow}>
-          <Text style={styles.infoIcon}>🕐</Text>
-          <Text style={styles.infoText}>{doctor.schedule}</Text>
+          <Text style={styles.infoIcon}>🏢</Text>
+          <Text style={styles.infoText}>{companyName}</Text>
         </View>
-      </View>
-
-      {/* === АДРЕС === */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Адрес</Text>
-        <View style={styles.infoRow}>
+        <View style={[styles.infoRow, { marginTop: Spacing.sm }]}>
           <Text style={styles.infoIcon}>📍</Text>
-          <Text style={styles.infoText}>{doctor.address}</Text>
+          <Text style={styles.infoText}>{companyAddress}</Text>
         </View>
       </View>
 
@@ -98,29 +131,32 @@ export default function DoctorDetailScreen() {
           router.push({
             pathname: '/appointment/new',
             params: {
-              doctorId: doctor.id,
-              doctorName: doctor.name,
+              specialistId: specialist.id,
+              specialistName: specialist.full_name,
             },
           });
         }}
       >
         <Text style={styles.appointmentButtonText}>
-          Записаться на приём • {doctor.price} ₽
+          Записаться
+          {specialist.price ? ` • ${specialist.price} ₽` : ''}
         </Text>
       </Pressable>
     </ScrollView>
   );
 }
+
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1, backgroundColor: Colors.background },
+  contentContainer: { paddingBottom: 40 },
+
+  centered: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: Colors.background,
   },
-  contentContainer: {
-    paddingBottom: 40,
-  },
 
-  // Шапка
   header: {
     alignItems: 'center',
     backgroundColor: Colors.surface,
@@ -133,27 +169,25 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: Spacing.borderRadius.full,
-    backgroundColor: Colors.primaryLight + '20',
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.md,
   },
   avatarText: {
-    fontSize: 50,
+    fontSize: 40,
+    fontWeight: '700',
+    color: Colors.textOnPrimary,
   },
-  name: {
-    ...Typography.h2,
-    textAlign: 'center',
-    marginBottom: 4,
-  },
+  name: { ...Typography.h2, textAlign: 'center', marginBottom: 4 },
   specialty: {
     ...Typography.body,
     color: Colors.primary,
     fontWeight: '500',
     marginBottom: Spacing.lg,
+    textAlign: 'center',
   },
 
-  // Статистика
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -162,57 +196,32 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
     width: '100%',
-    // width: '100%' — растягиваем на всю ширину родителя
   },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
+  statItem: { flex: 1, alignItems: 'center' },
   statValue: {
     fontSize: 16,
     fontWeight: '700',
     color: Colors.textPrimary,
     marginBottom: 2,
   },
-  statLabel: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-  },
-  statDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: Colors.border,
-  },
+  statLabel: { fontSize: 12, color: Colors.textSecondary },
+  statDivider: { width: 1, height: 30, backgroundColor: Colors.border },
 
-  // Секции
   section: {
     padding: Spacing.lg,
     backgroundColor: Colors.surface,
     marginTop: Spacing.sm,
   },
-  sectionTitle: {
-    ...Typography.h3,
-    marginBottom: Spacing.sm,
-  },
+  sectionTitle: { ...Typography.h3, marginBottom: Spacing.sm },
   description: {
     ...Typography.body,
     color: Colors.textSecondary,
     lineHeight: 24,
   },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  infoIcon: {
-    fontSize: 20,
-    marginRight: Spacing.sm,
-  },
-  infoText: {
-    ...Typography.body,
-    flex: 1,
-  },
+  infoRow: { flexDirection: 'row', alignItems: 'center' },
+  infoIcon: { fontSize: 20, marginRight: Spacing.sm },
+  infoText: { ...Typography.body, flex: 1 },
 
-  // Кнопка записи
   appointmentButton: {
     backgroundColor: Colors.primary,
     marginHorizontal: Spacing.lg,
@@ -232,7 +241,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
   },
 
-  // Ошибка
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -240,22 +248,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     padding: Spacing.lg,
   },
-  errorEmoji: {
-    fontSize: 64,
-    marginBottom: Spacing.lg,
-  },
-  errorText: {
-    ...Typography.h2,
-    marginBottom: Spacing.lg,
-  },
+  errorEmoji: { fontSize: 64, marginBottom: Spacing.lg },
+  errorText: { ...Typography.h2, marginBottom: Spacing.lg },
   backButton: {
     backgroundColor: Colors.primary,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.xxl,
     borderRadius: Spacing.borderRadius.sm,
   },
-  backButtonText: {
-    ...Typography.button,
-    color: Colors.textOnPrimary,
-  },
+  backButtonText: { ...Typography.button, color: Colors.textOnPrimary },
 });

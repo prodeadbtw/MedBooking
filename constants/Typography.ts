@@ -5,7 +5,7 @@
 // StyleSheet.create — это функция React Native для создания стилей.
 
 import { StyleSheet } from 'react-native';
-import Colors from './Colors';
+import Colors from './Color';
 
 // StyleSheet.create создаёт оптимизированный объект стилей.
 // React Native не использует CSS — вместо этого стили задаются

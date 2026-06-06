@@ -1,119 +1,166 @@
 // src/hooks/useAvatar.ts
 
-// CUSTOM HOOK — useAvatar
-// Управляет аватаркой пользователя:
-// - Выбор фото из галереи
-// - Сохранение в AsyncStorage
-// - Загрузка при старте
-
+import { decode } from 'base64-arraybuffer';
+import { File } from 'expo-file-system'; // новый File API (SDK 54+), без /legacy
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useState } from 'react';
-// * as ImagePicker — импортируем ВСЁ из библиотеки как объект.
-// Потом обращаемся: ImagePicker.launchImageLibraryAsync(), и т.д.
 import { Alert } from 'react-native';
-import { getItem, setItem } from '../services/storage';
+import { supabase } from '../lib/supabase';
 
-// Добавим новый ключ в storage.ts позже, а пока используем строку
-const AVATAR_KEY = '@medbooking:avatar';
+const BUCKET = 'avatars';
 
-interface UseAvatarReturn {
-  avatarUri: string | null;
-  // URI (путь) к фото. null = аватарка не установлена.
-  pickAvatar: () => Promise<void>;
-  // Функция для открытия галереи и выбора фото.
-  removeAvatar: () => Promise<void>;
-  // Функция для удаления аватарки.
-  isLoading: boolean;
-}
-
-export function useAvatar(): UseAvatarReturn {
+export function useAvatar() {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
 
-  // Загрузка сохранённой аватарки при старте
-  useEffect(() => {
-    (async () => {
-      try {
-        const saved = await getItem<string>(AVATAR_KEY);
-        if (saved) {
-          setAvatarUri(saved);
-        }
-      } catch (error) {
-        console.error('Ошибка загрузки аватара:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    })();
+  // Загружаем текущий avatar_url из профиля
+  const loadAvatar = useCallback(async () => {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return;
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('avatar_url')
+      .eq('id', userData.user.id)
+      .single();
+
+    if (error) {
+      console.log('Ошибка загрузки avatar_url:', error.message);
+      return;
+    }
+
+    setAvatarUri(data?.avatar_url ?? null);
   }, []);
 
-  // Выбор фото из галереи
-  const pickAvatar = useCallback(async () => {
-    try {
-      // На iOS и Android приложение НЕ МОЖЕТ получить доступ
-      // к фото без явного разрешения пользователя.
-      const permissionResult =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-      // requestMediaLibraryPermissionsAsync() — показывает системный
-      // диалог: "Разрешить MedBooking доступ к фото?"
+  useEffect(() => {
+    loadAvatar();
+  }, [loadAvatar]);
 
-      if (!permissionResult.granted) {
-        // Пользователь отказал — показываем объяснение
-        Alert.alert(
-          'Нет доступа',
-          'Для загрузки аватара необходимо разрешить доступ к галерее в настройках устройства.'
-        );
+  // Выбрать и загрузить новый аватар
+  const pickAvatar = useCallback(async () => {
+    // Разрешение на доступ к галерее
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(
+        'Нет доступа',
+        'Разрешите доступ к галерее в настройках телефона.'
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], // актуальный формат вместо MediaTypeOptions.Images
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (result.canceled || !result.assets[0]) return;
+
+    setUploading(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) {
+        Alert.alert('Ошибка', 'Сессия не найдена, войдите заново.');
+        return;
+      }
+      const userId = userData.user.id;
+      const asset = result.assets[0];
+
+      // Читаем файл как base64 и декодируем в ArrayBuffer.
+      // fetch(uri).arrayBuffer() в Expo часто даёт битый файл —
+      // поэтому используем надёжный путь через File API + base64.
+      const file = new File(asset.uri);
+      const base64 = await file.base64();
+      const arrayBuffer = decode(base64);
+
+      // Тип и путь файла
+      const fileExt = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const contentType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
+      const filePath = `${userId}/avatar_${Date.now()}.${fileExt}`;
+
+      // Удаляем старые файлы пользователя (чистим папку)
+      const { data: oldFiles } = await supabase.storage
+        .from(BUCKET)
+        .list(userId);
+
+      if (oldFiles && oldFiles.length > 0) {
+        const pathsToRemove = oldFiles.map((f) => `${userId}/${f.name}`);
+        await supabase.storage.from(BUCKET).remove(pathsToRemove);
+      }
+
+      // Загружаем новый файл
+      const { error: uploadError } = await supabase.storage
+        .from(BUCKET)
+        .upload(filePath, arrayBuffer, { contentType, upsert: true });
+
+      if (uploadError) {
+        console.log('Ошибка загрузки:', uploadError.message);
+        Alert.alert('Ошибка', 'Не удалось загрузить фото.');
         return;
       }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        // launchImageLibraryAsync — открывает системную галерею.
-        // Другой вариант: launchCameraAsync — открывает камеру.
+      // Публичный URL
+      const { data: publicData } = supabase.storage
+        .from(BUCKET)
+        .getPublicUrl(filePath);
 
-        mediaTypes: ['images'],
-        // mediaTypes — какие типы файлов показывать.
-        // 'images' — только изображения (не видео).
+      // Метка времени в конце URL обходит кэш картинки в <Image>
+      const publicUrl = `${publicData.publicUrl}?t=${Date.now()}`;
 
-        allowsEditing: true,
-        // allowsEditing — после выбора фото даёт обрезать его.
-        // Появляется квадратная рамка для кадрирования.
+      // Сохраняем URL в профиль
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', userId);
 
-        aspect: [1, 1],
-        // aspect — соотношение сторон при обрезке.
-        // [1, 1] = квадрат (для аватарки).
-        // [4, 3] = прямоугольник 4:3.
-
-        quality: 0.7,
-        // quality — качество сжатия от 0 до 1.
-        // 0.7 = 70% — хороший баланс между качеством и размером файла.
-        // 1 = максимальное качество, но файл большой.
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        // result.canceled — true если пользователь нажал «Отмена»
-        // result.assets — массив выбранных файлов (обычно 1)
-        // result.assets[0].uri — путь к файлу на устройстве
-        const uri = result.assets[0].uri;
-
-        // Сохраняем URI в state и AsyncStorage
-        setAvatarUri(uri);
-        await setItem(AVATAR_KEY, uri);
+      if (updateError) {
+        console.log('Ошибка сохранения URL:', updateError.message);
+        Alert.alert('Ошибка', 'Фото загружено, но не сохранилось в профиль.');
+        return;
       }
-    } catch (error) {
-      console.error('Ошибка выбора фото:', error);
-      Alert.alert('Ошибка', 'Не удалось выбрать фото.');
+
+      setAvatarUri(publicUrl);
+    } catch (e) {
+      console.log('Ошибка обработки фото:', e);
+      Alert.alert('Ошибка', 'Что-то пошло не так при загрузке.');
+    } finally {
+      setUploading(false);
     }
   }, []);
 
-  // Удаление аватарки
+  // Удалить аватар
   const removeAvatar = useCallback(async () => {
-    setAvatarUri(null);
-    await setItem(AVATAR_KEY, null);
+    setUploading(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+      const userId = userData.user.id;
+
+      // Удаляем все файлы в папке пользователя
+      const { data: files } = await supabase.storage
+        .from(BUCKET)
+        .list(userId);
+
+      if (files && files.length > 0) {
+        const paths = files.map((f) => `${userId}/${f.name}`);
+        await supabase.storage.from(BUCKET).remove(paths);
+      }
+
+      // Очищаем ссылку в профиле
+      await supabase
+        .from('profiles')
+        .update({ avatar_url: null })
+        .eq('id', userId);
+
+      setAvatarUri(null);
+    } catch (e) {
+      console.log('Ошибка удаления фото:', e);
+      Alert.alert('Ошибка', 'Не удалось удалить фото.');
+    } finally {
+      setUploading(false);
+    }
   }, []);
 
-  return {
-    avatarUri,
-    pickAvatar,
-    removeAvatar,
-    isLoading,
-  };
+  return { avatarUri, uploading, pickAvatar, removeAvatar };
 }

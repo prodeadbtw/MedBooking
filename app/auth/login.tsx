@@ -57,7 +57,7 @@ export default function LoginScreen() {
 
       if (success) {
         Alert.alert('Добро пожаловать! 👋', 'Вы успешно вошли в аккаунт.', [
-          { text: 'Отлично', onPress: () => router.back() },
+          { text: 'Отлично', onPress: () => router.replace('/(tabs)') },
         ]);
       } else {
         Alert.alert(
@@ -85,9 +85,7 @@ export default function LoginScreen() {
         <View style={styles.header}>
           <Text style={styles.logo}>🏥</Text>
           <Text style={styles.title}>Вход в MedBooking</Text>
-          <Text style={styles.subtitle}>
-            Введите данные вашего аккаунта
-          </Text>
+          <Text style={styles.subtitle}>Введите данные вашего аккаунта</Text>
         </View>
 
         {/* Форма */}
@@ -98,7 +96,8 @@ export default function LoginScreen() {
             value={email}
             onChangeText={(text) => {
               setEmail(text);
-              if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+              if (errors.email)
+                setErrors((prev) => ({ ...prev, email: undefined }));
             }}
             error={errors.email}
             keyboardType="email-address"
@@ -117,34 +116,22 @@ export default function LoginScreen() {
             }}
             error={errors.password}
             secureTextEntry
-            // secureTextEntry — скрывает ввод точками (••••••)
             autoComplete="password"
           />
 
-          <Button
-            title="Войти"
-            onPress={handleLogin}
-            loading={isLoading}
-          />
+          <Button title="Войти" onPress={handleLogin} loading={isLoading} />
         </View>
 
         {/* Ссылка на регистрацию */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Нет аккаунта? </Text>
-          <Pressable
-            onPress={() => router.replace('/auth/register')}
-            // router.replace — заменяет текущий экран, а не добавляет поверх.
-            // Это чтобы при нажатии «назад» не попасть снова на логин.
-          >
+          <Pressable onPress={() => router.replace('/auth/register')}>
             <Text style={styles.footerLink}>Зарегистрироваться</Text>
           </Pressable>
         </View>
 
         {/* Кнопка «Назад» */}
-        <Pressable
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
+        <Pressable style={styles.backButton} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>← Вернуться</Text>
         </Pressable>
       </ScrollView>

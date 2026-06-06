@@ -104,12 +104,18 @@ export default function RegisterScreen() {
         Alert.alert(
           'Регистрация успешна! 🎉',
           'Добро пожаловать в SmartBooking!',
-          [{ text: 'Начать', onPress: () => router.dismiss() }]
-          // router.dismiss() — закрывает все модальные экраны,
-          // возвращая на главный (вкладки)
+            [
+              {
+                text: 'Начать',
+                onPress: () => router.replace('/(tabs)'), 
+              },
+            ]
         );
       } else {
-        Alert.alert('Ошибка', 'Не удалось зарегистрироваться.');
+        Alert.alert(
+          'Ошибка',
+          'Не удалось зарегистрироваться. Возможно, email уже занят.'
+        );
       }
     } catch {
       Alert.alert('Ошибка', 'Не удалось подключиться к серверу.');
@@ -213,9 +219,17 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', marginBottom: Spacing.xxl },
   logo: { fontSize: 64, marginBottom: Spacing.md },
   title: { ...Typography.h1, textAlign: 'center', marginBottom: Spacing.sm },
-  subtitle: { ...Typography.body, color: Colors.textSecondary, textAlign: 'center' },
+  subtitle: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+  },
   form: { marginBottom: Spacing.xxl },
-  footer: { flexDirection: 'row', justifyContent: 'center', marginBottom: Spacing.xxl },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: Spacing.xxl,
+  },
   footerText: { ...Typography.body, color: Colors.textSecondary },
   footerLink: { ...Typography.body, color: Colors.primary, fontWeight: '600' },
   backButton: { alignItems: 'center' },

@@ -2,6 +2,7 @@
 
 import React, { useCallback } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Pressable,
@@ -10,39 +11,70 @@ import {
   View,
 } from 'react-native';
 import { Colors, Spacing, Typography } from '../../constants';
-import { useApp } from '../../contexts/AppContext';
-import {
-  Appointment,
-  STATUS_COLORS,
-  STATUS_LABELS,
-} from '../../data/appointments';
+import { Appointment, useApp } from '../../contexts/AppContext';
+import { useAuth } from '../../contexts/AuthContext';
+
+// Подписи и цвета статусов (раньше брались из data/appointments)
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Ожидает',
+  confirmed: 'Подтверждена',
+  done: 'Завершена',
+  cancelled: 'Отменена',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  pending: Colors.warning,
+  confirmed: Colors.primary,
+  done: Colors.success ?? '#22C55E',
+  cancelled: Colors.error,
+};
 
 export default function AppointmentsScreen() {
   const {
-  appointments,
-  appointmentsLoading: isLoading,
-  cancelAppointment,
-} = useApp();
+    appointments,
+    appointmentsLoading: isLoading,
+    cancelAppointment,
+    refetchAppointments,
+  } = useApp();
+  const { state } = useAuth();
 
-  // Обработчик отмены записи
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetchAppointments();
+    setRefreshing(false);
+  }, [refetchAppointments]);
+
+  // Форматирование "2026-06-10" → "10 июня 2026 г."
+  const formatDate = (dateStr: string): string => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  };
+
+  // Время "14:30:00" → "14:30"
+  const formatTime = (timeStr: string): string => timeStr.slice(0, 5);
+
+  // Имя специалиста для отображения и алертов
+  const getSpecialistName = (item: Appointment): string =>
+    item.specialists?.full_name ?? 'Специалист';
+
   const handleCancel = useCallback(
     (appointment: Appointment) => {
-      // Показываем диалог подтверждения
       Alert.alert(
         'Отменить запись?',
-        `Запись к ${appointment.doctorName} на ${new Date(
-          appointment.date
-        ).toLocaleDateString('ru-RU')}`,
+        `Запись к ${getSpecialistName(appointment)} на ${formatDate(
+          appointment.appointment_date
+        )}`,
         [
-          {
-            text: 'Нет',
-            style: 'cancel',
-            // style: 'cancel' — на iOS эта кнопка будет жирной
-          },
+          { text: 'Нет', style: 'cancel' },
           {
             text: 'Да, отменить',
             style: 'destructive',
-            // style: 'destructive' — красный текст (деструктивное действие)
             onPress: () => cancelAppointment(appointment.id),
           },
         ]
@@ -51,32 +83,35 @@ export default function AppointmentsScreen() {
     [cancelAppointment]
   );
 
-  // Рендер одной карточки записи
   const renderAppointment = useCallback(
     ({ item }: { item: Appointment }) => {
-      const appointmentDate = new Date(item.date);
-      const statusColor = STATUS_COLORS[item.status];
-      const statusLabel = STATUS_LABELS[item.status];
-      // Можно ли отменить: только если статус "pending" или "confirmed"
+      const statusColor = STATUS_COLORS[item.status] ?? Colors.textSecondary;
+      const statusLabel = STATUS_LABELS[item.status] ?? item.status;
       const canCancel =
         item.status === 'pending' || item.status === 'confirmed';
-        
+
+      const profession = item.specialists
+        ? `${item.specialists.profession}${
+            item.specialists.specialization
+              ? ` • ${item.specialists.specialization}`
+              : ''
+          }`
+        : '';
+
       return (
         <View style={styles.card}>
-          {/* Заголовок карточки: врач + статус */}
+          {/* Заголовок: специалист + статус */}
           <View style={styles.cardHeader}>
             <View style={styles.doctorInfo}>
-              <Text style={styles.doctorName}>{item.doctorName}</Text>
-              <Text style={styles.patientName}>
-                Пациент: {item.patientName}
-              </Text>
+              <Text style={styles.doctorName}>{getSpecialistName(item)}</Text>
+              {profession ? (
+                <Text style={styles.patientName}>{profession}</Text>
+              ) : null}
             </View>
-            {/* Бейдж статуса */}
             <View
               style={[
                 styles.statusBadge,
                 { backgroundColor: statusColor + '20' },
-                // +20 = 12% прозрачности — светлый фон
               ]}
             >
               <Text style={[styles.statusText, { color: statusColor }]}>
@@ -85,27 +120,25 @@ export default function AppointmentsScreen() {
             </View>
           </View>
 
-          {/* Детали записи */}
+          {/* Детали */}
           <View style={styles.cardDetails}>
             <View style={styles.detailRow}>
               <Text style={styles.detailIcon}>📅</Text>
               <Text style={styles.detailText}>
-                {appointmentDate.toLocaleDateString('ru-RU', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
+                {formatDate(item.appointment_date)}
               </Text>
             </View>
             <View style={styles.detailRow}>
-              <Text style={styles.detailIcon}>📞</Text>
-              <Text style={styles.detailText}>{item.phone}</Text>
+              <Text style={styles.detailIcon}>🕐</Text>
+              <Text style={styles.detailText}>
+                {formatTime(item.appointment_time)}
+              </Text>
             </View>
-            {item.complaints ? (
+            {item.comment ? (
               <View style={styles.detailRow}>
                 <Text style={styles.detailIcon}>💬</Text>
                 <Text style={styles.detailText} numberOfLines={2}>
-                  {item.complaints}
+                  {item.comment}
                 </Text>
               </View>
             ) : null}
@@ -123,8 +156,7 @@ export default function AppointmentsScreen() {
 
           {/* Дата создания */}
           <Text style={styles.createdAt}>
-            Создано:{' '}
-            {new Date(item.createdAt).toLocaleDateString('ru-RU')}
+            Создано: {new Date(item.created_at).toLocaleDateString('ru-RU')}
           </Text>
         </View>
       );
@@ -132,24 +164,37 @@ export default function AppointmentsScreen() {
     [handleCancel]
   );
 
-  // Заглушка для пустого списка
+  // === ГОСТЬ ===
+  if (!state.isAuthenticated) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyEmoji}>🔐</Text>
+        <Text style={styles.emptyTitle}>Войдите в аккаунт</Text>
+        <Text style={styles.emptySubtitle}>
+          Записи доступны только авторизованным пользователям
+        </Text>
+      </View>
+    );
+  }
+
   const renderEmpty = useCallback(
     () => (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyEmoji}>📋</Text>
         <Text style={styles.emptyTitle}>Записей пока нет</Text>
         <Text style={styles.emptySubtitle}>
-          Запишитесь к врачу — и запись появится здесь
+          Запишитесь к специалисту — и запись появится здесь
         </Text>
       </View>
     ),
     []
   );
 
-  // Индикатор загрузки
+  // === ЗАГРУЗКА ===
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.primary} />
         <Text style={styles.loadingText}>Загрузка записей...</Text>
       </View>
     );
@@ -164,22 +209,17 @@ export default function AppointmentsScreen() {
         ListEmptyComponent={renderEmpty}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  listContent: {
-    padding: Spacing.lg,
-    flexGrow: 1,
-  },
+  container: { flex: 1, backgroundColor: Colors.background },
+  listContent: { padding: Spacing.lg, flexGrow: 1 },
 
-  // Карточка записи
   card: {
     backgroundColor: Colors.surface,
     borderRadius: Spacing.borderRadius.md,
@@ -197,31 +237,17 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: Spacing.md,
   },
-  doctorInfo: {
-    flex: 1,
-    marginRight: Spacing.sm,
-  },
-  doctorName: {
-    ...Typography.h3,
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  patientName: {
-    ...Typography.caption,
-  },
+  doctorInfo: { flex: 1, marginRight: Spacing.sm },
+  doctorName: { ...Typography.h3, fontSize: 16, marginBottom: 8 },
+  patientName: { ...Typography.caption },
 
-  // Статус
   statusBadge: {
     paddingHorizontal: Spacing.md,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
+  statusText: { fontSize: 12, fontWeight: '600' },
 
-  // Детали
   cardDetails: {
     borderTopWidth: 1,
     borderTopColor: Colors.divider,
@@ -232,20 +258,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.sm,
   },
-  detailIcon: {
-    fontSize: 16,
-    marginRight: Spacing.sm,
-    width: 24,
-    // width: 24 — фиксированная ширина, чтобы текст 
-    // выравнивался по левому краю
-  },
-  detailText: {
-    ...Typography.body,
-    fontSize: 14,
-    flex: 1,
-  },
+  detailIcon: { fontSize: 16, marginRight: Spacing.sm, width: 24 },
+  detailText: { ...Typography.body, fontSize: 14, flex: 1 },
 
-  // Кнопка отмены
   cancelButton: {
     marginTop: Spacing.md,
     paddingVertical: Spacing.sm,
@@ -260,7 +275,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  // Дата создания
   createdAt: {
     ...Typography.caption,
     fontSize: 11,
@@ -268,22 +282,25 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
 
-  // Пустой список
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: Spacing.xxl,
+    backgroundColor: Colors.background,
   },
   emptyEmoji: { fontSize: 64, marginBottom: Spacing.lg },
-  emptyTitle: { ...Typography.h2, textAlign: 'center', marginBottom: Spacing.sm },
+  emptyTitle: {
+    ...Typography.h2,
+    textAlign: 'center',
+    marginBottom: Spacing.sm,
+  },
   emptySubtitle: {
     ...Typography.body,
     color: Colors.textSecondary,
     textAlign: 'center',
   },
 
-  // Загрузка
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -293,5 +310,6 @@ const styles = StyleSheet.create({
   loadingText: {
     ...Typography.body,
     color: Colors.textSecondary,
+    marginTop: Spacing.md,
   },
 });

@@ -3,6 +3,7 @@
 // import { Colors, Typography, Spacing } from '../constants';
 // Вместо трёх отдельных импортов из трёх файлов.
 
-export { default as Colors } from './Colors';
-export { default as Typography } from './Typography';
+export { default as Colors } from './Color';
 export { default as Spacing } from './Spacing';
+export { default as Typography } from './Typography';
+
